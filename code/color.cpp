@@ -4,6 +4,7 @@
 #include "hittable_list.h"
 #include "sphere.h"
 #include "camera.h"
+#include"material.h"
 
 
 //发射一条射线，判断是否命中球体
@@ -21,10 +22,25 @@ double hit_sphere(const point3& center, double radius, const ray& r) {
 
 }
 //发射一条射线，并采样该射线最终输出到屏幕的颜色值
-color ray_color(const ray& r,const hittable& world) {
+color ray_color(const ray& r,const hittable& world,int depth) {
 	hit_record rec;
-	if (world.hit(r, 0, infinity, rec))
-		return 0.5*(rec.normal + color(1, 1, 1));
+	//如果我们超过光线反弹限制，则不再收集光线
+	if (depth <= 0)
+		return color(0, 0, 0);
+	if (world.hit(r, 0.001, infinity, rec)) {
+		/*
+		//将得到的随机点转换为场景所在的世界坐标
+		point3 target = rec.p + random_in_hemisphere(rec.normal);//半球散射
+		return 0.5*ray_color(ray(rec.p,target-rec.p),world,depth-1);//假设每次反射会被吸收一半的光线能量，则每次的反射采样的返回值要减半
+		//如果光线一直反射，则上述递归会一直进行下去，直到射线没有命中物体，则采样天空的颜色并返回
+		*/
+		ray scattered;
+		color attenuation;
+		if (rec.mat_ptr->scatter(r, rec, attenuation, scattered))
+			return attenuation * ray_color(scattered, world, depth - 1);
+		return color(0, 0, 0);
+
+	}
 	vec3 unit_direction = unit_vector(r.direction());
 	auto t = 0.5*(unit_direction.y() + 1.0);
 	return (1.0 - t)*color(1.0, 1.0, 1.0) + t * color(0.5, 0.7, 1.0);//对白色和浅蓝色插值
@@ -36,13 +52,20 @@ int main() {
 	const int image_width = 400;
 	const int image_height = static_cast<int>(image_width / aspect_ratio);
 	const int samples_per_pixel = 100;
-
+	const int max_depth = 50;
 
 
 	//world,存放场景中所有的球
 	hittable_list world;
-	world.add(make_shared<sphere>(point3(0, 0, -1), 0.5));
-	world.add(make_shared<sphere>(point3(0, -100.5, -1), 100));
+	auto material_ground = make_shared<lambertian>(color(0.8, 0.8, 0.0));
+	auto material_center = make_shared<lambertian>(color(0.7, 0.3, 0.3));
+	auto material_left = make_shared<metal>(color(0.8, 0.8, 0.8), 0.3);
+	auto material_right = make_shared<metal>(color(0.8, 0.6, 0.2), 1.0);
+
+	world.add(make_shared<sphere>(point3(0.0, -100.5, -1.0), 100.0, material_ground));
+	world.add(make_shared<sphere>(point3(0.0, 0.0, -1.0), 0.5, material_center));
+	world.add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), 0.5, material_left));
+	world.add(make_shared<sphere>(point3(1.0, 0.0, -1.0), 0.5, material_right));
 
 	//camera
 	camera cam;
@@ -58,7 +81,7 @@ int main() {
 				auto u = (i + random_double()) / (image_width - 1);
 				auto v = (j + random_double()) / (image_height - 1);
 				ray r = cam.get_ray(u, v);
-				pixel_color += ray_color(r, world);
+				pixel_color += ray_color(r, world,max_depth);
 			}
 			write_color(std::cout, pixel_color, samples_per_pixel);
 		}

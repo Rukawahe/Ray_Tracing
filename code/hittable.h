@@ -2,10 +2,14 @@
 #define HITTABLE_H
 
 #include "ray.h"
+#include"Integration.h"
+
+class material;
 struct hit_record{
 	point3 p;//命中终点坐标
 	vec3 normal;//命中点的法向量
 	double t;//命中射线长度
+	shared_ptr<material>mat_ptr;//命中的材质
 	bool front_face;
 	//求法向量
 	inline void set_face_normal(const ray&r, const vec3& outward_normal) {

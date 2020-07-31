@@ -23,6 +23,10 @@ inline double degrees_to_radians(double degrees) {
 inline double random_double() {
 	return rand() / (RAND_MAX + 1.0);
 }
+//生成[0,1)的随机数,含有两个参数
+inline double random_double(double min, double max) {
+	return min + (max - min)*random_double();
+}
 
 //夹紧x函数
 inline double clamp(double x, double min, double max) {
